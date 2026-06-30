@@ -1,7 +1,7 @@
 {
   "meta": {
     "pretty_name": "RCAEval RCA",
-    "dataset_id": "evalscope/benchmarks/rcaeval_rca/data/rca_cases_sample.jsonl",
+    "dataset_id": "generated/rcaeval_cases.jsonl",
     "paper_url": null,
     "tags": [
       "RCA",
@@ -11,10 +11,14 @@
     ],
     "metrics": [
       "overall_minimal",
+      "overall_strict",
       "root_cause_component_top1",
       "root_cause_component_top3",
       "root_cause_type_accuracy",
+      "root_cause_indicator_family_accuracy",
       "root_cause_indicator_accuracy",
+      "root_cause_indicator_top3",
+      "root_cause_evidence_family_accuracy",
       "evidence_present",
       "causal_path_f1"
     ],
@@ -38,40 +42,43 @@
     "category": "llm"
   },
   "statistics": {
-    "total_samples": 1,
+    "total_samples": 735,
     "subset_stats": [
       {
         "name": "default",
-        "sample_count": 1,
-        "prompt_length_mean": 700,
-        "prompt_length_min": 700,
-        "prompt_length_max": 700,
-        "prompt_length_std": 0,
-        "target_length_mean": 120
+        "sample_count": 735,
+        "prompt_length_mean": 920.05,
+        "prompt_length_min": 898,
+        "prompt_length_max": 948,
+        "prompt_length_std": null,
+        "target_length_mean": 657.07
       }
     ],
     "prompt_length": {
-      "mean": 700,
-      "min": 700,
-      "max": 700,
-      "std": 0
+      "mean": 920.05,
+      "min": 898,
+      "max": 948,
+      "std": null
     },
-    "target_length_mean": 120,
-    "computed_at": "2026-06-29T00:00:00"
+    "target_length_mean": 657.07,
+    "computed_at": "2026-06-30T12:25:30"
   },
   "sample_example": {
     "data": {
       "input": [
         {
           "role": "user",
-          "content": "{\"case_id\":\"rcaeval_legacy_simple_metrics_emailservice_mem_sample\",\"data_endpoint\":\"http://127.0.0.1:18080/cases/...\"}"
+          "content": "{\"alert\": \"online-boutique has an injected incident around 1685202688; diagnose the root cause from offline telemetry.\", \"case_id\": \"rcaeval_re1-ob_0001\", \"data_endpoint\": \"http://127.0.0.1:18080/cases/rcaeval_re1-ob_0001\", \"dataset\": \"RE1-OB\", \"end_time\": 1685202988, \"inject_time\": 1685202688, \"modalities\": [\"metrics\"], \"question\": \"An incident occurred in the online-boutique microservice system around Unix timestamp 1685202688. Use the offline telemetry API at http://127.0.0.1:18080/cases/rcaeval_re1-ob_0001 to inspect available metrics data and diagnose the root cause. Return JSON only with fields: case_id, root_cause_component, root_cause_type, root_cause_indicator_family, root_cause_indicator, ranked_root_cause_components, ranked_root_cause_indicators, confidence, evidence, causal_path, recommended_fix.\", \"source\": \"RCAEval\", \"start_time\": 1685202388, \"suite\": \"RE1-OB\", \"system\": \"online-boutique\"}"
         }
       ],
-      "target": "{\"root_cause_component\":\"emailservice\",\"root_cause_type\":\"mem\",\"root_cause_indicator\":\"emailservice_mem\"}",
+      "target": "{\"causal_path\": [], \"rcaeval_legacy_metric_answer\": \"adservice_cpu\", \"rcaeval_overall_metric_answer\": \"adservice_cpu\", \"root_cause_component\": \"adservice\", \"root_cause_indicator\": \"adservice_cpu\", \"root_cause_indicator_accepted_families\": [\"cpu\"], \"root_cause_indicator_aliases\": [\"adservice_cpu\", \"adservice_container-cpu-usage-seconds-total\", \"adservice_container-cpu-system-seconds-total\", \"adservice_container-cpu-user-seconds-total\"], \"root_cause_indicator_family\": \"cpu\", \"root_cause_indicator_granularity\": \"specific\", \"root_cause_type\": \"cpu\"}",
       "id": 0,
       "group_id": 0,
       "metadata": {
-        "suite": "legacy-smoke"
+        "case_id": "rcaeval_re1-ob_0001",
+        "suite": "RE1-OB",
+        "root_cause_component": "adservice",
+        "root_cause_type": "cpu"
       }
     },
     "subset": "default",
@@ -83,5 +90,5 @@
     "content_hash": "local-rcaeval-rca",
     "needs_translation": false
   },
-  "updated_at": "2026-06-29T00:00:00"
+  "updated_at": "2026-06-30T12:25:30"
 }

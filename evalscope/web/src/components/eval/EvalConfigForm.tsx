@@ -11,6 +11,7 @@ type RcaAgentMode = 'mock' | 'http' | 'openai'
 
 const RCA_DATASET = 'rcaeval_rca'
 const RCA_DUMMY_API_URL = 'http://127.0.0.1/unused'
+const RCA_DEFAULT_CASES_PATH = 'generated/rcaeval_cases.jsonl'
 
 interface Props {
   onSubmit: (config: Record<string, unknown>) => void
@@ -43,6 +44,7 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
   const [rcaOpenaiModel, setRcaOpenaiModel] = useState('gpt-4.1-mini')
   const [rcaMetricsLimit, setRcaMetricsLimit] = useState('80')
   const [rcaTimeout, setRcaTimeout] = useState('120')
+  const [rcaCasesPath, setRcaCasesPath] = useState(RCA_DEFAULT_CASES_PATH)
 
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -61,6 +63,7 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
 
   const buildRcaDatasetArgs = () => ({
     [RCA_DATASET]: {
+      local_path: rcaCasesPath || RCA_DEFAULT_CASES_PATH,
       extra_params: {
         agent_mode: rcaAgentMode,
         agent_url: rcaAgentUrl,
@@ -96,7 +99,7 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
     setTimeout_(rcaTimeout)
     setDatasetArgs(JSON.stringify(buildRcaDatasetArgs(), null, 2))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rcaPreset, rcaAgentMode, rcaAgentUrl, rcaOpenaiApiUrl, rcaOpenaiApiKey, rcaOpenaiModel, rcaMetricsLimit, rcaTimeout])
+  }, [rcaPreset, rcaAgentMode, rcaAgentUrl, rcaOpenaiApiUrl, rcaOpenaiApiKey, rcaOpenaiModel, rcaMetricsLimit, rcaTimeout, rcaCasesPath])
 
   useEffect(() => {
     listBenchmarks()
@@ -262,6 +265,14 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
             </FormField>
             <FormField label="Agent Timeout">
               <input type="number" value={rcaTimeout} onChange={(e) => setRcaTimeout(e.target.value)} className={FORM_INPUT_CLASS} />
+            </FormField>
+            <FormField label="Cases JSONL" className="md:col-span-3">
+              <input
+                value={rcaCasesPath}
+                onChange={(e) => setRcaCasesPath(e.target.value)}
+                className={FORM_INPUT_CLASS}
+                placeholder={RCA_DEFAULT_CASES_PATH}
+              />
             </FormField>
           </div>
         )}
