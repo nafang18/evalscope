@@ -1,0 +1,92 @@
+{
+  "meta": {
+    "pretty_name": "OpsEval",
+    "dataset_id": "evalscope/benchmarks/opseval/data/opseval_sample.jsonl",
+    "paper_url": "https://arxiv.org/abs/2310.07637",
+    "tags": [
+      "QA",
+      "MCQ",
+      "Ops",
+      "AIOps"
+    ],
+    "metrics": [
+      "overall_score",
+      "mcq_accuracy",
+      "mcq_partial_f1",
+      "qa_score",
+      "qa_accuracy",
+      "qa_fluency",
+      "qa_evidence",
+      "sample_score"
+    ],
+    "few_shot_num": 0,
+    "eval_split": null,
+    "train_split": null,
+    "subset_list": [
+      "default"
+    ],
+    "description": "\n## Overview\n\nOpsEval is a mixed IT operations benchmark for evaluating models on operational multiple-choice questions and open-ended question answering in one dataset.\n\n## Task Description\n\n- **Task Type**: IT operations MCQ + QA\n- **Input**: Operations question, optional choices, and metadata such as domain/language\n- **Output**: MCQ answer letter or open-ended operational answer\n\n## Evaluation Notes\n\n- MCQ samples are scored by rule-based answer extraction and exact match.\n- QA samples are scored by FAE: fluency, accuracy, and evidence using a configurable judge model.\n- Overall score balances the MCQ and QA subsets instead of letting the larger subset dominate.\n",
+    "aggregation": "mean",
+    "extra_params": {
+      "mcq_weight": 0.5,
+      "qa_weight": 0.5,
+      "judge_api_url": "",
+      "judge_api_key": "",
+      "judge_model": "",
+      "judge_timeout": 120,
+      "qa_fluency_weight": 0.2,
+      "qa_accuracy_weight": 0.6,
+      "qa_evidence_weight": 0.2
+    },
+    "sandbox_config": {},
+    "category": "llm"
+  },
+  "statistics": {
+    "total_samples": 2,
+    "subset_stats": [
+      {
+        "name": "default",
+        "sample_count": 2,
+        "prompt_length_mean": 260,
+        "prompt_length_min": 210,
+        "prompt_length_max": 310,
+        "prompt_length_std": null,
+        "target_length_mean": 100
+      }
+    ],
+    "prompt_length": {
+      "mean": 260,
+      "min": 210,
+      "max": 310,
+      "std": null
+    },
+    "target_length_mean": 100,
+    "computed_at": "2026-06-30T00:00:00"
+  },
+  "sample_example": {
+    "data": {
+      "input": [
+        {
+          "role": "user",
+          "content": "Answer the following IT operations multiple-choice question..."
+        }
+      ],
+      "target": "{\"task_type\":\"mcq\",\"answer\":\"B\"}",
+      "id": 0,
+      "group_id": 0,
+      "metadata": {
+        "task_type": "mcq",
+        "domain": "Fault Analysis and Diagnostics"
+      }
+    },
+    "subset": "default",
+    "truncated": false
+  },
+  "readme": {
+    "en": "# OpsEval\n\n## Overview\n\nOpsEval is a mixed IT operations benchmark for evaluating models on operational multiple-choice questions and open-ended question answering in one dataset.\n\n## Task Description\n\n- **Task Type**: IT operations MCQ + QA\n- **Input**: Operations question, optional choices, and metadata such as domain/language\n- **Output**: MCQ answer letter or open-ended operational answer\n\n## Evaluation Notes\n\n- MCQ samples are scored by rule-based answer extraction and exact match.\n- QA samples are scored by FAE: fluency, accuracy, and evidence using a configurable judge model.\n- Overall score balances the MCQ and QA subsets instead of letting the larger subset dominate.\n\n## Usage\n\nUse `/api/v1/eval/invoke` with `datasets: [\"opseval\"]`. Set `dataset_args.opseval.local_path` to a mixed OpsEval JSONL file and configure FAE judge parameters in `extra_params`.",
+    "zh": "# OpsEval\n\n## 概述\n\nOpsEval 是一个混合运维评测基准，在一个数据集中同时评测运维选择题和开放问答能力。\n\n## 任务描述\n\n- **任务类型**：运维 MCQ + QA\n- **输入**：运维问题、可选选项、domain/language 等元数据\n- **输出**：选择题答案字母或开放式运维回答\n\n## 评测说明\n\n- MCQ 使用规则抽取答案并 exact match。\n- QA 使用可配置外部 judge 进行 FAE 评分：fluency、accuracy、evidence。\n- overall_score 对 MCQ 和 QA 两个子集均衡加权，避免样本数量较多的一类主导总分。\n\n## 使用方法\n\n通过 `/api/v1/eval/invoke` 发起，`datasets` 传 `[\"opseval\"]`。通过 `dataset_args.opseval.local_path` 指定混合 JSONL 数据，通过 `extra_params` 配置 FAE judge。",
+    "content_hash": "local-opseval",
+    "needs_translation": false
+  },
+  "updated_at": "2026-06-30T00:00:00"
+}

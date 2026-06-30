@@ -33,6 +33,7 @@ DEFAULT_TEXT_BENCHMARKS: List[str] = [
     'multi_if',
     'ifeval',
     'ifbench',
+    'opseval',
     'rcaeval_rca',
 ]
 
