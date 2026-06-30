@@ -33,6 +33,7 @@ DEFAULT_TEXT_BENCHMARKS: List[str] = [
     'multi_if',
     'ifeval',
     'ifbench',
+    'rcaeval_rca',
 ]
 
 #: Default multimodal benchmarks exposed by the /api/v1/eval/benchmarks endpoint.

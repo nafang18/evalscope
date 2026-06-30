@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "pretty_name": "RCAEval RCA",
+    "dataset_id": "evalscope/benchmarks/rcaeval_rca/data/rca_cases_sample.jsonl",
+    "paper_url": null,
+    "tags": [
+      "RCA",
+      "SRE",
+      "Agent",
+      "Offline"
+    ],
+    "metrics": [
+      "overall_minimal",
+      "root_cause_component_top1",
+      "root_cause_component_top3",
+      "root_cause_type_accuracy",
+      "root_cause_indicator_accuracy",
+      "evidence_present",
+      "causal_path_f1"
+    ],
+    "few_shot_num": 0,
+    "eval_split": null,
+    "train_split": null,
+    "subset_list": [
+      "default"
+    ],
+    "description": "\n## Overview\n\nRCAEval RCA is a local offline root-cause-analysis benchmark for evaluating SRE agents against RCAEval-derived cases.\n\n## Task Description\n\n- **Task Type**: Operations root cause analysis\n- **Input**: Incident case metadata and an offline telemetry data endpoint\n- **Output**: Structured RCA JSON including root-cause component, type, indicator, evidence, causal path, and recommended fix\n\n## Evaluation Notes\n\n- The agent should query offline telemetry instead of receiving ground truth.\n- The scorer evaluates structured RCA fields rather than plain exact match.\n",
+    "aggregation": "mean",
+    "extra_params": {
+      "agent_mode": "mock",
+      "agent_url": "",
+      "openai_api_url": "https://api.openai.com/v1",
+      "openai_model": "gpt-4.1-mini",
+      "metrics_limit": 80,
+      "timeout": 120
+    },
+    "sandbox_config": {},
+    "category": "llm"
+  },
+  "statistics": {
+    "total_samples": 1,
+    "subset_stats": [
+      {
+        "name": "default",
+        "sample_count": 1,
+        "prompt_length_mean": 700,
+        "prompt_length_min": 700,
+        "prompt_length_max": 700,
+        "prompt_length_std": 0,
+        "target_length_mean": 120
+      }
+    ],
+    "prompt_length": {
+      "mean": 700,
+      "min": 700,
+      "max": 700,
+      "std": 0
+    },
+    "target_length_mean": 120,
+    "computed_at": "2026-06-29T00:00:00"
+  },
+  "sample_example": {
+    "data": {
+      "input": [
+        {
+          "role": "user",
+          "content": "{\"case_id\":\"rcaeval_legacy_simple_metrics_emailservice_mem_sample\",\"data_endpoint\":\"http://127.0.0.1:18080/cases/...\"}"
+        }
+      ],
+      "target": "{\"root_cause_component\":\"emailservice\",\"root_cause_type\":\"mem\",\"root_cause_indicator\":\"emailservice_mem\"}",
+      "id": 0,
+      "group_id": 0,
+      "metadata": {
+        "suite": "legacy-smoke"
+      }
+    },
+    "subset": "default",
+    "truncated": false
+  },
+  "readme": {
+    "en": "# RCAEval RCA\n\n## Overview\n\nRCAEval RCA is a local offline root-cause-analysis benchmark for evaluating SRE agents against RCAEval-derived cases.\n\n## Task Description\n\n- **Task Type**: Operations root cause analysis\n- **Input**: Incident case metadata and an offline telemetry data endpoint\n- **Output**: Structured RCA JSON including root-cause component, type, indicator, evidence, causal path, and recommended fix\n\n## Evaluation Notes\n\n- The agent should query offline telemetry instead of receiving ground truth.\n- The scorer evaluates structured RCA fields rather than plain exact match.\n\n## Usage\n\nUse `/api/v1/eval/invoke` with `datasets: [\"rcaeval_rca\"]` and dataset `extra_params` for `agent_mode`.",
+    "zh": "# RCAEval RCA\n\n## Overview\n\nRCAEval RCA 是一个本地离线根因分析评测任务，用于评估 SRE Agent 在 RCAEval 派生故障案例上的诊断能力。\n\n## Task Description\n\n- **任务类型**：运维根因分析\n- **输入**：故障案例元数据和离线遥测数据查询入口\n- **输出**：结构化 RCA JSON，包括根因组件、根因类型、根因指标、证据、因果路径和修复建议\n\n## Evaluation Notes\n\n- Agent 应该查询离线遥测数据，而不是直接看到 ground truth。\n- 评分器评估结构化 RCA 字段，不是普通 exact match。\n\n## Usage\n\n通过 `/api/v1/eval/invoke` 发起，`datasets` 传 `[\"rcaeval_rca\"]`，并在 dataset `extra_params` 里指定 `agent_mode`。",
+    "content_hash": "local-rcaeval-rca",
+    "needs_translation": false
+  },
+  "updated_at": "2026-06-29T00:00:00"
+}
