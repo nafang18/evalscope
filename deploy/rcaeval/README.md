@@ -1,60 +1,211 @@
-# RCAEval EvalScope Deployment
+# RCAEval EvalScope Deployment Runbook
 
-This folder contains a code-only RCAEval deployment helper. It does not include
-raw RCAEval data, generated benchmark files, Parquet stores, logs, reports, or
-PID files.
+This directory is a code-only deployment workspace for evaluating RCA agents on
+RCAEval data through EvalScope.
 
-## Layout
+It intentionally does not include:
 
-Clone this repository, then use this folder as the deployment workspace:
+- RCAEval raw data
+- generated benchmark JSONL/index files
+- Parquet offline stores
+- evaluation outputs
+- logs or PID files
+
+Use this document as the handoff runbook for a fresh machine.
+
+## 1. Recommended Environment
+
+Use Ubuntu or WSL Ubuntu. The scripts are bash scripts and were validated in WSL.
+
+Recommended resources:
+
+- Python 3.10+
+- 16 GB memory or more
+- 80 GB free disk if generating the full offline store from raw RCAEval data
+
+The examples below assume the repository has been cloned and you are in:
 
 ```bash
 cd deploy/rcaeval
 ```
 
-Place raw RCAEval data under:
+All generated runtime files will be created under this directory.
+
+## 2. Directory Layout
+
+Expected layout after setup:
+
+```text
+evalscope/
+  deploy/
+    rcaeval/
+      README.md
+      data/                         # user-provided raw RCAEval data
+      generated/
+        rcaeval_cases.jsonl
+        rcaeval_data_index.json
+        rcaeval_data_index_store.json
+        store_v1/
+      outputs/
+      logs/
+      .venv/
+```
+
+The raw RCAEval data must be placed here:
 
 ```text
 deploy/rcaeval/data
 ```
 
-The raw data directory should contain suites such as `RE1-OB`, `RE2-OB`, and
-`RE3-OB`.
+The data directory should contain suites like:
 
-## Install
+```text
+RE1-OB/
+RE1-SS/
+RE1-TT/
+RE2-OB/
+RE2-SS/
+RE2-TT/
+RE3-OB/
+RE3-SS/
+RE3-TT/
+```
+
+Each case directory should look similar to:
+
+```text
+RE2-OB/checkoutservice_delay/1/simple_metrics.csv
+RE2-OB/checkoutservice_delay/1/logs.csv
+RE2-OB/checkoutservice_delay/1/traces.csv
+RE2-OB/checkoutservice_delay/1/inject_time.txt
+```
+
+## 3. Install Dependencies
+
+From `deploy/rcaeval`:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -U pip setuptools wheel
 pip install -e ../..
 pip install fastapi uvicorn pandas pyarrow
 ```
 
-## Generate Benchmark Files
+Quick check:
+
+```bash
+.venv/bin/python --version
+.venv/bin/python -c "import pyarrow, fastapi; print('deps ok')"
+```
+
+## 4. Generate EvalScope Benchmark Files
+
+This step scans raw RCAEval data and creates EvalScope cases plus an offline
+data index.
 
 ```bash
 mkdir -p generated
 
-python ../../evalscope/benchmarks/rcaeval_rca/generate_benchmark.py \
+.venv/bin/python ../../evalscope/benchmarks/rcaeval_rca/generate_benchmark.py \
   --raw-root data \
   --cases-output generated/rcaeval_cases.jsonl \
   --index-output generated/rcaeval_data_index.json \
   --endpoint-base http://127.0.0.1:18080
 ```
 
-## Generate Offline Store
+Expected output for the complete RCAEval dataset:
+
+```text
+Generated 735 RCAEval cases
+```
+
+Verify:
 
 ```bash
-python ../../evalscope/benchmarks/rcaeval_rca/prepare_offline_store.py \
+wc -l generated/rcaeval_cases.jsonl
+```
+
+The expected count is `735`.
+
+## 5. Generate The Offline Data Store
+
+This converts large CSV telemetry files into Parquet and creates
+`generated/rcaeval_data_index_store.json`, which is used by the Offline Data
+API.
+
+```bash
+.venv/bin/python ../../evalscope/benchmarks/rcaeval_rca/prepare_offline_store.py \
   --index generated/rcaeval_data_index.json \
   --store-root generated/store_v1 \
   --output-index generated/rcaeval_data_index_store.json
 ```
 
-## Start Services
+This can take a while for the full dataset. It is safe to rerun without
+`--force`; existing Parquet files will be reused.
+
+Use `--limit` for a smoke conversion:
+
+```bash
+.venv/bin/python ../../evalscope/benchmarks/rcaeval_rca/prepare_offline_store.py \
+  --index generated/rcaeval_data_index.json \
+  --store-root generated/store_v1 \
+  --output-index generated/rcaeval_data_index_store.json \
+  --limit 10
+```
+
+If you regenerated `rcaeval_data_index.json` but already have `store_v1`, you
+can rebuild only the store metadata:
+
+```bash
+.venv/bin/python ../../evalscope/benchmarks/rcaeval_rca/merge_store_index.py \
+  --new-index generated/rcaeval_data_index.json \
+  --store-root generated/store_v1 \
+  --output-index generated/rcaeval_data_index_store.json
+```
+
+## 6. Start Offline Data API
 
 ```bash
 ./start-offline-data-api.sh
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:18080/health
+```
+
+Expected:
+
+```json
+{"status":"ok","cases":735}
+```
+
+Inspect one case:
+
+```bash
+curl http://127.0.0.1:18080/cases/rcaeval_re1-ob_0001 | python3 -m json.tool
+```
+
+Inspect available data for one case:
+
+```bash
+curl http://127.0.0.1:18080/cases/rcaeval_re1-ob_0001/catalog | python3 -m json.tool
+```
+
+Query metrics:
+
+```bash
+curl -s -X POST \
+  http://127.0.0.1:18080/cases/rcaeval_re1-ob_0001/metrics/query \
+  -H 'Content-Type: application/json' \
+  -d '{"limit": 2}' | python3 -m json.tool
+```
+
+## 7. Start EvalScope Web Service
+
+```bash
 ./start-evalscope.sh
 ```
 
@@ -64,14 +215,213 @@ Open:
 http://127.0.0.1:9000/dashboard
 ```
 
-Check service health:
+Check status:
 
 ```bash
 ./status.sh
 ```
 
-## Run A Smoke Evaluation
+Stop services:
+
+```bash
+./stop-evalscope.sh
+./stop-offline-data-api.sh
+```
+
+## 8. Run A Smoke Evaluation From CLI
+
+The default script uses the built-in mock RCA agent. It validates that EvalScope
+can load the dataset, call the adapter, score predictions, and write reports.
 
 ```bash
 LIMIT=10 ./run-rcaeval-eval.sh
+```
+
+Outputs are written under:
+
+```text
+deploy/rcaeval/outputs/rcaeval_full_mock
+```
+
+## 9. Run An External HTTP RCA Agent
+
+EvalScope calls the external RCA agent with a JSON body that includes:
+
+```json
+{
+  "case_id": "rcaeval_re1-ob_0001",
+  "source": "RCAEval",
+  "dataset": "RE1-OB",
+  "suite": "RE1-OB",
+  "system": "online-boutique",
+  "inject_time": 1685202688,
+  "start_time": 1685202388,
+  "end_time": 1685202988,
+  "modalities": ["metrics"],
+  "data_endpoint": "http://127.0.0.1:18080/cases/rcaeval_re1-ob_0001",
+  "question": "..."
+}
+```
+
+The agent should return JSON:
+
+```json
+{
+  "case_id": "rcaeval_re1-ob_0001",
+  "root_cause_component": "adservice",
+  "root_cause_type": "delay",
+  "root_cause_indicator_family": "latency",
+  "root_cause_indicator": "adservice_latency-90",
+  "ranked_root_cause_components": ["adservice"],
+  "ranked_root_cause_indicators": ["adservice_latency-90"],
+  "confidence": 0.8,
+  "evidence": [
+    {
+      "source": "metrics",
+      "query": "POST /metrics/query ...",
+      "finding": "adservice_latency-90 increased after inject_time"
+    }
+  ],
+  "causal_path": [],
+  "recommended_fix": "..."
+}
+```
+
+Run with HTTP mode:
+
+```bash
+AGENT_MODE=http \
+RCA_AGENT_URL=http://127.0.0.1:7000/api/v1/diagnose \
+LIMIT=10 \
+./run-rcaeval-eval.sh
+```
+
+If the CLI script is not yet wired to your desired agent URL, pass dataset args
+directly:
+
+```bash
+.venv/bin/evalscope eval \
+  --datasets rcaeval_rca \
+  --dataset-args '{"rcaeval_rca":{"local_path":"generated/rcaeval_cases.jsonl","extra_params":{"agent_mode":"http","agent_url":"http://127.0.0.1:7000/api/v1/diagnose","timeout":120}}}' \
+  --eval-type mock_llm \
+  --model-id web-rca-http-agent \
+  --work-dir outputs/rcaeval_http_smoke \
+  --no-timestamp \
+  --ignore-errors \
+  --limit 10
+```
+
+## 10. Run From EvalScope Web
+
+1. Start Offline Data API.
+2. Start EvalScope Web.
+3. Open `http://127.0.0.1:9000/dashboard`.
+4. Create an eval task.
+5. Use the `RCAEval RCA` preset.
+6. Choose one agent mode:
+   - `mock`
+   - `http`
+   - `openai`
+7. Submit the task and inspect the report.
+
+## 11. Scoring Semantics
+
+The scorer separates injected fault type from observable indicators.
+
+For a delay case:
+
+```json
+{
+  "root_cause_component": "adservice",
+  "root_cause_type": "delay",
+  "root_cause_indicator_family": "latency",
+  "root_cause_indicator": "adservice_latency-90"
+}
+```
+
+For a code-level RE3 case:
+
+```json
+{
+  "root_cause_component": "cartservice",
+  "root_cause_type": "f1",
+  "root_cause_indicator_family": "code",
+  "root_cause_indicator": "cartservice_stack"
+}
+```
+
+Important metrics:
+
+- `root_cause_component_top1`: exact root service match
+- `root_cause_type_accuracy`: injected fault type match, such as `cpu`,
+  `delay`, `loss`, or `f1`
+- `root_cause_indicator_family_accuracy`: observable family match, such as
+  `latency`, `network_loss`, `diskio`, `code`, `stack`, or `trace`
+- `root_cause_indicator_accuracy`: specific service-level indicator match
+- `overall_minimal`: service + type + indicator family
+- `overall_strict`: service + type + indicator family + specific indicator
+
+## 12. Common Issues
+
+### `ModuleNotFoundError: pyarrow`
+
+Install runtime dependencies inside `deploy/rcaeval/.venv`:
+
+```bash
+source .venv/bin/activate
+pip install pyarrow fastapi uvicorn pandas
+```
+
+### Offline Data API shows fewer than 735 cases
+
+Regenerate the benchmark files from the complete raw data:
+
+```bash
+.venv/bin/python ../../evalscope/benchmarks/rcaeval_rca/generate_benchmark.py \
+  --raw-root data \
+  --cases-output generated/rcaeval_cases.jsonl \
+  --index-output generated/rcaeval_data_index.json \
+  --endpoint-base http://127.0.0.1:18080
+```
+
+Then regenerate the store index:
+
+```bash
+.venv/bin/python ../../evalscope/benchmarks/rcaeval_rca/prepare_offline_store.py \
+  --index generated/rcaeval_data_index.json \
+  --store-root generated/store_v1 \
+  --output-index generated/rcaeval_data_index_store.json
+```
+
+### `store_available=false`
+
+The case exists in the benchmark index, but its Parquet store was not generated.
+Run `prepare_offline_store.py` for the full dataset or remove `--limit` if a
+smoke conversion was used.
+
+### Port already in use
+
+Override ports:
+
+```bash
+RCA_DATA_PORT=18081 ./start-offline-data-api.sh
+EVALSCOPE_PORT=9001 ./start-evalscope.sh
+```
+
+When changing `RCA_DATA_PORT`, regenerate benchmark cases with the same endpoint
+base, or set the endpoint to the port that the agent can actually reach.
+
+### Web task cannot find `rcaeval_rca`
+
+Make sure EvalScope is started with this source tree on `PYTHONPATH`. The
+provided script already does this:
+
+```bash
+./start-evalscope.sh
+```
+
+If starting manually:
+
+```bash
+PYTHONPATH="$(cd ../.. && pwd)" .venv/bin/evalscope service --host 0.0.0.0 --port 9000
 ```

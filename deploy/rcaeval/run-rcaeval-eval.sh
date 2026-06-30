@@ -8,11 +8,12 @@ CASES=${RCA_CASES:-$ROOT/generated/rcaeval_cases.jsonl}
 TASK_NAME=${TASK_NAME:-rcaeval_full_mock}
 WORK_DIR=${WORK_DIR:-$ROOT/outputs/$TASK_NAME}
 AGENT_MODE=${AGENT_MODE:-mock}
+AGENT_URL=${RCA_AGENT_URL:-${AGENT_URL:-}}
 MODEL_ID=${MODEL_ID:-rca-mock-agent}
 LIMIT=${LIMIT:-}
 
 DATASET_ARGS=$(cat <<JSON
-{"rcaeval_rca":{"local_path":"$CASES","extra_params":{"agent_mode":"$AGENT_MODE"}}}
+{"rcaeval_rca":{"local_path":"$CASES","extra_params":{"agent_mode":"$AGENT_MODE","agent_url":"$AGENT_URL"}}}
 JSON
 )
 
