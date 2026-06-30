@@ -23,6 +23,7 @@ DATASET_NAME = 'opseval'
 SUBSET_NAME = 'default'
 ROOT = Path(__file__).resolve().parent
 DEFAULT_DATASET = ROOT / 'data' / 'opseval_sample.jsonl'
+REPO_ROOT = ROOT.parents[2]
 
 OPSEVAL_DESCRIPTION = """
 ## Overview
@@ -44,7 +45,22 @@ multiple-choice questions and open-ended question answering in one dataset.
 """
 
 
+def resolve_dataset_path(path: Path) -> Path:
+    if path.exists() or path.is_absolute():
+        return path
+    candidates = [
+        Path.cwd() / path,
+        REPO_ROOT / path,
+        REPO_ROOT / 'deploy' / 'opseval' / path,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return path
+
+
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
+    path = resolve_dataset_path(path)
     if not path.exists():
         raise FileNotFoundError(path)
     records: list[dict[str, Any]] = []

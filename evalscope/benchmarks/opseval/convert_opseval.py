@@ -12,12 +12,24 @@ from typing import Any
 SUPPORTED_SUFFIXES = {'.jsonl', '.json', '.csv', '.tsv'}
 
 
-def load_records(path: Path) -> list[dict[str, Any]]:
+def with_path_metadata(record: dict[str, Any], file_path: Path, root_path: Path) -> dict[str, Any]:
+    record = dict(record)
+    relative = file_path.relative_to(root_path) if file_path.is_relative_to(root_path) else file_path.name
+    parts = list(relative.parts)
+    if len(parts) >= 2:
+        record.setdefault('split', parts[0])
+    record.setdefault('domain', file_path.stem)
+    record.setdefault('source_file', str(relative))
+    return record
+
+
+def load_records(path: Path, root_path: Path | None = None) -> list[dict[str, Any]]:
+    root_path = root_path or (path if path.is_dir() else path.parent)
     if path.is_dir():
         records: list[dict[str, Any]] = []
         for file_path in sorted(path.rglob('*')):
             if file_path.suffix.lower() in SUPPORTED_SUFFIXES:
-                records.extend(load_records(file_path))
+                records.extend(load_records(file_path, root_path=root_path))
         return records
 
     suffix = path.suffix.lower()
@@ -27,21 +39,21 @@ def load_records(path: Path) -> list[dict[str, Any]]:
             for line in fh:
                 line = line.strip()
                 if line:
-                    rows.append(json.loads(line))
+                    rows.append(with_path_metadata(json.loads(line), path, root_path))
         return rows
     if suffix == '.json':
         data = json.loads(path.read_text(encoding='utf-8'))
         if isinstance(data, list):
-            return data
+            return [with_path_metadata(record, path, root_path) for record in data]
         if isinstance(data, dict):
             for key in ('data', 'records', 'examples', 'questions'):
                 if isinstance(data.get(key), list):
-                    return data[key]
-            return [data]
+                    return [with_path_metadata(record, path, root_path) for record in data[key]]
+            return [with_path_metadata(data, path, root_path)]
     if suffix in {'.csv', '.tsv'}:
         delimiter = '\t' if suffix == '.tsv' else ','
         with path.open('r', encoding='utf-8-sig', newline='') as fh:
-            return list(csv.DictReader(fh, delimiter=delimiter))
+            return [with_path_metadata(record, path, root_path) for record in csv.DictReader(fh, delimiter=delimiter)]
     return []
 
 
@@ -114,7 +126,7 @@ def convert_record(record: dict[str, Any], index: int) -> dict[str, Any]:
         'id': str(first_value(record, ['id', 'qid', 'question_id'], f'opseval_{task_type}_{index:06d}')),
         'task_type': task_type,
         'domain': str(first_value(record, ['domain', 'category', 'task', 'area'], 'unknown')),
-        'language': str(first_value(record, ['language', 'lang'], 'unknown')),
+        'language': str(first_value(record, ['language', 'lang'], 'zh')),
         'question': str(question),
         'answer': answer,
         'source': str(first_value(record, ['source'], 'opseval')),
@@ -125,9 +137,13 @@ def convert_record(record: dict[str, Any], index: int) -> dict[str, Any]:
         points = first_value(record, ['reference_points', 'key_points', 'rubric'], None)
         converted['reference_points'] = normalize_reference_points(points)
 
-    for key in ('ability', 'difficulty', 'subdomain'):
+    topic = record.get('topic')
+    if topic not in (None, ''):
+        converted['subdomain'] = topic if isinstance(topic, str) else ' | '.join(str(item) for item in topic)
+
+    for key in ('ability', 'difficulty', 'subdomain', 'split', 'source_file', 'qtype', 'type'):
         value = record.get(key)
-        if value not in (None, ''):
+        if value not in (None, '') and key not in converted:
             converted[key] = value
     return converted
 
