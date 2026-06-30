@@ -5,15 +5,13 @@ import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import FormField from '@/components/ui/FormField'
 import { FORM_INPUT_CLASS, FORM_LABEL_CLASS, inputClass } from '@/components/ui/formStyles'
-import { ChevronDown, ChevronUp, ClipboardCheck, Stethoscope } from 'lucide-react'
+import { ChevronDown, ChevronUp, Stethoscope } from 'lucide-react'
 
 type RcaAgentMode = 'mock' | 'http' | 'openai'
 
 const RCA_DATASET = 'rcaeval_rca'
 const RCA_DUMMY_API_URL = 'http://127.0.0.1/unused'
 const RCA_DEFAULT_CASES_PATH = 'generated/rcaeval_cases.jsonl'
-const OPSEVAL_DATASET = 'opseval'
-const OPSEVAL_DEFAULT_DATA_PATH = 'generated/opseval.jsonl'
 
 interface Props {
   onSubmit: (config: Record<string, unknown>) => void
@@ -24,7 +22,6 @@ interface Props {
 export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: Props) {
   const { t } = useLocale()
   const [rcaPreset, setRcaPreset] = useState(initialDataset === RCA_DATASET)
-  const [opsEvalPreset, setOpsEvalPreset] = useState(initialDataset === OPSEVAL_DATASET)
   const [model, setModel] = useState('')
   const [apiUrl, setApiUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
@@ -48,13 +45,6 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
   const [rcaMetricsLimit, setRcaMetricsLimit] = useState('80')
   const [rcaTimeout, setRcaTimeout] = useState('120')
   const [rcaCasesPath, setRcaCasesPath] = useState(RCA_DEFAULT_CASES_PATH)
-  const [opsEvalDataPath, setOpsEvalDataPath] = useState(OPSEVAL_DEFAULT_DATA_PATH)
-  const [opsEvalJudgeApiUrl, setOpsEvalJudgeApiUrl] = useState('https://api.openai.com/v1')
-  const [opsEvalJudgeApiKey, setOpsEvalJudgeApiKey] = useState('')
-  const [opsEvalJudgeModel, setOpsEvalJudgeModel] = useState('')
-  const [opsEvalMcqWeight, setOpsEvalMcqWeight] = useState('0.5')
-  const [opsEvalQaWeight, setOpsEvalQaWeight] = useState('0.5')
-  const [opsEvalJudgeTimeout, setOpsEvalJudgeTimeout] = useState('120')
 
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -68,7 +58,6 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
   useEffect(() => {
     if (initialDataset) setDatasets(initialDataset)
     if (initialDataset === RCA_DATASET) applyRcaPreset()
-    if (initialDataset === OPSEVAL_DATASET) applyOpsEvalPreset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialDataset])
 
@@ -89,7 +78,6 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
 
   const applyRcaPreset = () => {
     setRcaPreset(true)
-    setOpsEvalPreset(false)
     setModel(rcaAgentMode === 'openai' ? rcaOpenaiModel : 'rca-agent')
     setApiUrl(RCA_DUMMY_API_URL)
     setApiKey('')
@@ -99,32 +87,6 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
     setTimeout_(rcaTimeout)
     setStream(false)
     setDatasetArgs(JSON.stringify(buildRcaDatasetArgs(), null, 2))
-    setErrors({})
-  }
-
-  const buildOpsEvalDatasetArgs = () => ({
-    [OPSEVAL_DATASET]: {
-      local_path: opsEvalDataPath || OPSEVAL_DEFAULT_DATA_PATH,
-      extra_params: {
-        mcq_weight: Number(opsEvalMcqWeight || 0.5),
-        qa_weight: Number(opsEvalQaWeight || 0.5),
-        judge_api_url: opsEvalJudgeApiUrl,
-        judge_api_key: opsEvalJudgeApiKey,
-        judge_model: opsEvalJudgeModel,
-        judge_timeout: Number(opsEvalJudgeTimeout || 120),
-      },
-    },
-  })
-
-  const applyOpsEvalPreset = () => {
-    setOpsEvalPreset(true)
-    setRcaPreset(false)
-    setDatasets(OPSEVAL_DATASET)
-    setLimit('')
-    setEvalBatchSize('4')
-    setTimeout_(opsEvalJudgeTimeout)
-    setStream(false)
-    setDatasetArgs(JSON.stringify(buildOpsEvalDatasetArgs(), null, 2))
     setErrors({})
   }
 
@@ -138,15 +100,6 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
     setDatasetArgs(JSON.stringify(buildRcaDatasetArgs(), null, 2))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rcaPreset, rcaAgentMode, rcaAgentUrl, rcaOpenaiApiUrl, rcaOpenaiApiKey, rcaOpenaiModel, rcaMetricsLimit, rcaTimeout, rcaCasesPath])
-
-  useEffect(() => {
-    if (!opsEvalPreset) return
-    setDatasets(OPSEVAL_DATASET)
-    setEvalBatchSize('4')
-    setTimeout_(opsEvalJudgeTimeout)
-    setDatasetArgs(JSON.stringify(buildOpsEvalDatasetArgs(), null, 2))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opsEvalPreset, opsEvalDataPath, opsEvalJudgeApiUrl, opsEvalJudgeApiKey, opsEvalJudgeModel, opsEvalMcqWeight, opsEvalQaWeight, opsEvalJudgeTimeout])
 
   useEffect(() => {
     listBenchmarks()
@@ -174,7 +127,6 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
   const handleDatasetChange = (val: string) => {
     setDatasets(val)
     if (!val.includes(RCA_DATASET)) setRcaPreset(false)
-    if (!val.includes(OPSEVAL_DATASET)) setOpsEvalPreset(false)
     // Filter based on last token after comma
     const parts = val.split(',')
     const current = parts[parts.length - 1].trim().toLowerCase()
@@ -322,69 +274,6 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
                 className={FORM_INPUT_CLASS}
                 placeholder={RCA_DEFAULT_CASES_PATH}
               />
-            </FormField>
-          </div>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-4 border-b border-[var(--border)] pb-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--accent-dim)] text-[var(--accent)]">
-              <ClipboardCheck size={16} />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-[var(--text)]">OpsEval</div>
-              <div className="text-xs text-[var(--text-muted)]">Mixed operations MCQ and QA benchmark with FAE judging</div>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant={opsEvalPreset ? 'primary' : 'outline'}
-            size="sm"
-            onClick={applyOpsEvalPreset}
-          >
-            Use OpsEval preset
-          </Button>
-          {opsEvalPreset && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setOpsEvalPreset(false)}
-            >
-              Standard mode
-            </Button>
-          )}
-        </div>
-
-        {opsEvalPreset && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField label="OpsEval JSONL" className="md:col-span-3">
-              <input
-                value={opsEvalDataPath}
-                onChange={(e) => setOpsEvalDataPath(e.target.value)}
-                className={FORM_INPUT_CLASS}
-                placeholder={OPSEVAL_DEFAULT_DATA_PATH}
-              />
-            </FormField>
-            <FormField label="Judge API URL">
-              <input value={opsEvalJudgeApiUrl} onChange={(e) => setOpsEvalJudgeApiUrl(e.target.value)} className={FORM_INPUT_CLASS} />
-            </FormField>
-            <FormField label="Judge Model">
-              <input value={opsEvalJudgeModel} onChange={(e) => setOpsEvalJudgeModel(e.target.value)} className={FORM_INPUT_CLASS} placeholder="gpt-4.1-mini" />
-            </FormField>
-            <FormField label="Judge API Key">
-              <input type="password" value={opsEvalJudgeApiKey} onChange={(e) => setOpsEvalJudgeApiKey(e.target.value)} className={FORM_INPUT_CLASS} />
-            </FormField>
-            <FormField label="MCQ Weight">
-              <input type="number" step="0.1" value={opsEvalMcqWeight} onChange={(e) => setOpsEvalMcqWeight(e.target.value)} className={FORM_INPUT_CLASS} />
-            </FormField>
-            <FormField label="QA Weight">
-              <input type="number" step="0.1" value={opsEvalQaWeight} onChange={(e) => setOpsEvalQaWeight(e.target.value)} className={FORM_INPUT_CLASS} />
-            </FormField>
-            <FormField label="Judge Timeout">
-              <input type="number" value={opsEvalJudgeTimeout} onChange={(e) => setOpsEvalJudgeTimeout(e.target.value)} className={FORM_INPUT_CLASS} />
             </FormField>
           </div>
         )}

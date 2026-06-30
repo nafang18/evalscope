@@ -78,7 +78,13 @@ Start EvalScope service, then open:
 http://127.0.0.1:9000/dashboard
 ```
 
-In the Eval task page, click `Use OpsEval preset`.
+In the Eval task page, use the normal EvalScope form:
+
+- `Datasets`: `opseval`
+- `Dataset Args`: paste the JSON below
+
+The benchmark is registered as a native EvalScope benchmark, so no dedicated
+OpsEval web button is required.
 
 Default dataset args:
 
