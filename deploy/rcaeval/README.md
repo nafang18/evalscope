@@ -243,7 +243,7 @@ Outputs are written under:
 deploy/rcaeval/outputs/rcaeval_full_mock
 ```
 
-## 9. Run An External HTTP RCA Agent
+## 9. Run An External Async HTTP RCA Agent
 
 EvalScope calls the external RCA agent with a JSON body that includes:
 
@@ -263,36 +263,95 @@ EvalScope calls the external RCA agent with a JSON body that includes:
 }
 ```
 
-The agent should return JSON:
+For `AGENT_MODE=async_http`, EvalScope starts an external agent task, then polls
+for its trajectory and final answer. The start endpoint receives the same case
+payload shown above and should return a task id:
 
 ```json
 {
-  "case_id": "rcaeval_re1-ob_0001",
-  "root_cause_component": "adservice",
-  "root_cause_type": "delay",
-  "root_cause_indicator_family": "latency",
-  "root_cause_indicator": "adservice_latency-90",
-  "ranked_root_cause_components": ["adservice"],
-  "ranked_root_cause_indicators": ["adservice_latency-90"],
-  "confidence": 0.8,
-  "evidence": [
-    {
-      "source": "metrics",
-      "query": "POST /metrics/query ...",
-      "finding": "adservice_latency-90 increased after inject_time"
-    }
-  ],
-  "causal_path": [],
-  "recommended_fix": "..."
+  "task_id": "rcaeval_re1-ob_0001-20260701",
+  "status": "running"
 }
 ```
 
-Run with HTTP mode:
+The poll endpoint may be either a templated URL such as
+`http://127.0.0.1:7000/api/v1/diagnose/{task_id}` or a plain URL. For a plain
+GET URL, EvalScope appends `task_id` and `case_id` as query parameters.
+
+Each poll response should include `status`, and may include `trace` while the
+agent is still running:
+
+```json
+{
+  "task_id": "rcaeval_re1-ob_0001-20260701",
+  "status": "running",
+  "trace": [
+    {
+      "event": "query",
+      "source": "metrics",
+      "operation": "aggregate",
+      "finding": "adservice CPU usage increased"
+    }
+  ]
+}
+```
+
+When finished, return a terminal status and the final answer under `answer`,
+`result`, `final_answer`, `output`, or `prediction`:
+
+```json
+{
+  "task_id": "rcaeval_re1-ob_0001-20260701",
+  "status": "completed",
+  "trace": [],
+  "answer": {
+    "case_id": "rcaeval_re1-ob_0001",
+    "root_cause_component": "adservice",
+    "root_cause_type": "cpu",
+    "root_cause_indicator_family": "cpu",
+    "root_cause_indicator": "adservice_cpu",
+    "ranked_root_cause_components": ["adservice"],
+    "ranked_root_cause_indicators": ["adservice_cpu"],
+    "confidence": 0.9,
+    "evidence": [],
+    "causal_path": [],
+    "recommended_fix": "..."
+  }
+}
+```
+
+Run with async HTTP mode:
 
 ```bash
-AGENT_MODE=http \
-RCA_AGENT_URL=http://127.0.0.1:7000/api/v1/diagnose \
+AGENT_MODE=async_http \
+RCA_AGENT_URL=http://127.0.0.1:7000/api/v1/diagnose/start \
+RCA_AGENT_POLL_URL=http://127.0.0.1:7000/api/v1/diagnose/status \
+POLL_INTERVAL_SECONDS=60 \
+MAX_WAIT_SECONDS=3600 \
 LIMIT=10 \
+./run-rcaeval-eval.sh
+```
+
+If your response fields are nested, configure dotted paths:
+
+```bash
+TASK_ID_PATH=data.task_id \
+STATUS_PATH=data.status \
+ANSWER_PATH=data.answer \
+TRACE_PATH=data.trace \
+./run-rcaeval-eval.sh
+```
+
+If the external agent returns a free-form or framework-specific answer, enable
+the chat-completions-compatible normalizer. The normalizer receives the case metadata,
+poll snapshots, trace, and raw agent answer, then emits the standard RCA JSON
+used by the scorer.
+
+```bash
+NORMALIZE_WITH_AI=true \
+RCA_NORMALIZER_API_URL=http://127.0.0.1:8000/v1 \
+RCA_NORMALIZER_API_KEY=YOUR_KEY \
+RCA_NORMALIZER_MODEL=YOUR_MODEL \
 ./run-rcaeval-eval.sh
 ```
 
@@ -302,10 +361,10 @@ directly:
 ```bash
 .venv/bin/evalscope eval \
   --datasets rcaeval_rca \
-  --dataset-args '{"rcaeval_rca":{"local_path":"generated/rcaeval_cases.jsonl","extra_params":{"agent_mode":"http","agent_url":"http://127.0.0.1:7000/api/v1/diagnose","timeout":120}}}' \
+  --dataset-args '{"rcaeval_rca":{"local_path":"generated/rcaeval_cases.jsonl","extra_params":{"agent_mode":"async_http","agent_url":"http://127.0.0.1:7000/api/v1/diagnose/start","agent_poll_url":"http://127.0.0.1:7000/api/v1/diagnose/status","poll_interval_seconds":60,"max_wait_seconds":3600,"timeout":120}}}' \
   --eval-type mock_llm \
-  --model-id web-rca-http-agent \
-  --work-dir outputs/rcaeval_http_smoke \
+  --model-id web-rca-async-agent \
+  --work-dir outputs/rcaeval_async_smoke \
   --no-timestamp \
   --ignore-errors \
   --limit 10
@@ -317,12 +376,13 @@ directly:
 2. Start EvalScope Web.
 3. Open `http://127.0.0.1:9000/dashboard`.
 4. Create an eval task.
-5. Use the `RCAEval RCA` preset.
-6. Choose one agent mode:
-   - `mock`
-   - `http`
-   - `openai`
-7. Submit the task and inspect the report.
+5. In the normal dataset field, enter `rcaeval_rca`.
+6. Open More Params and set `dataset_args` with `agent_mode=async_http`,
+   `agent_url`, `agent_poll_url`, `poll_interval_seconds`, and
+   `max_wait_seconds`.
+7. Optionally enable `normalize_with_ai` and configure the normalizer model in
+   `dataset_args`.
+8. Submit the task and inspect the report.
 
 ## 11. Scoring Semantics
 

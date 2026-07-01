@@ -5,9 +5,7 @@ import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import FormField from '@/components/ui/FormField'
 import { FORM_INPUT_CLASS, FORM_LABEL_CLASS, inputClass } from '@/components/ui/formStyles'
-import { ChevronDown, ChevronUp, Stethoscope } from 'lucide-react'
-
-type RcaAgentMode = 'mock' | 'http' | 'openai'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 const RCA_DATASET = 'rcaeval_rca'
 const RCA_DUMMY_API_URL = 'http://127.0.0.1/unused'
@@ -21,7 +19,6 @@ interface Props {
 
 export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: Props) {
   const { t } = useLocale()
-  const [rcaPreset, setRcaPreset] = useState(initialDataset === RCA_DATASET)
   const [model, setModel] = useState('')
   const [apiUrl, setApiUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
@@ -38,14 +35,6 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
   const [maxTokens, setMaxTokens] = useState('')
   const [topK, setTopK] = useState('')
   const [datasetArgs, setDatasetArgs] = useState('')
-  const [rcaAgentMode, setRcaAgentMode] = useState<RcaAgentMode>('mock')
-  const [rcaAgentUrl, setRcaAgentUrl] = useState('')
-  const [rcaOpenaiApiUrl, setRcaOpenaiApiUrl] = useState('https://api.openai.com/v1')
-  const [rcaOpenaiApiKey, setRcaOpenaiApiKey] = useState('')
-  const [rcaOpenaiModel, setRcaOpenaiModel] = useState('gpt-4.1-mini')
-  const [rcaMetricsLimit, setRcaMetricsLimit] = useState('80')
-  const [rcaTimeout, setRcaTimeout] = useState('120')
-  const [rcaCasesPath, setRcaCasesPath] = useState(RCA_DEFAULT_CASES_PATH)
 
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -58,49 +47,43 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
 
   useEffect(() => {
     if (initialDataset) setDatasets(initialDataset)
-    if (initialDataset === RCA_DATASET) applyRcaPreset()
+    if (initialDataset === RCA_DATASET) applyRcaDefaults()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialDataset])
 
   const buildRcaDatasetArgs = () => ({
     [RCA_DATASET]: {
-      local_path: rcaCasesPath || RCA_DEFAULT_CASES_PATH,
+      local_path: RCA_DEFAULT_CASES_PATH,
       extra_params: {
-        agent_mode: rcaAgentMode,
-        agent_url: rcaAgentUrl,
-        openai_api_url: rcaOpenaiApiUrl,
-        openai_api_key: rcaOpenaiApiKey,
-        openai_model: rcaOpenaiModel,
-        metrics_limit: Number(rcaMetricsLimit || 80),
-        timeout: Number(rcaTimeout || 120),
+        agent_mode: 'async_http',
+        agent_url: 'http://127.0.0.1:7000/api/v1/diagnose/start',
+        agent_poll_url: 'http://127.0.0.1:7000/api/v1/diagnose/status',
+        agent_poll_method: 'GET',
+        poll_interval_seconds: 60,
+        max_wait_seconds: 3600,
+        normalize_with_ai: false,
+        normalizer_api_url: '',
+        normalizer_api_key: '',
+        normalizer_model: '',
+        timeout: 120,
       },
     },
   })
 
-  const applyRcaPreset = () => {
-    setRcaPreset(true)
-    setModel(rcaAgentMode === 'openai' ? rcaOpenaiModel : 'rca-agent')
+  const isRcaSelected = (value: string) => value.split(',').map((s) => s.trim()).includes(RCA_DATASET)
+
+  const applyRcaDefaults = (nextDatasets = RCA_DATASET) => {
+    setModel((prev) => prev || 'rca-agent')
     setApiUrl(RCA_DUMMY_API_URL)
     setApiKey('')
-    setDatasets(RCA_DATASET)
-    setLimit('')
+    setDatasets(nextDatasets)
+    setLimit((prev) => prev === '5' ? '' : prev)
     setEvalBatchSize('1')
-    setTimeout_(rcaTimeout)
+    setTimeout_('120')
     setStream(false)
-    setDatasetArgs(JSON.stringify(buildRcaDatasetArgs(), null, 2))
+    setDatasetArgs((prev) => prev.trim() ? prev : JSON.stringify(buildRcaDatasetArgs(), null, 2))
     setErrors({})
   }
-
-  useEffect(() => {
-    if (!rcaPreset) return
-    setModel(rcaAgentMode === 'openai' ? rcaOpenaiModel : 'rca-agent')
-    setApiUrl(RCA_DUMMY_API_URL)
-    setDatasets(RCA_DATASET)
-    setEvalBatchSize('1')
-    setTimeout_(rcaTimeout)
-    setDatasetArgs(JSON.stringify(buildRcaDatasetArgs(), null, 2))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rcaPreset, rcaAgentMode, rcaAgentUrl, rcaOpenaiApiUrl, rcaOpenaiApiKey, rcaOpenaiModel, rcaMetricsLimit, rcaTimeout, rcaCasesPath])
 
   useEffect(() => {
     listBenchmarks()
@@ -127,7 +110,9 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
 
   const handleDatasetChange = (val: string) => {
     setDatasets(val)
-    if (!val.includes(RCA_DATASET)) setRcaPreset(false)
+    if (isRcaSelected(val) && !datasetArgs.trim()) {
+      applyRcaDefaults(val)
+    }
     // Filter based on last token after comma
     const parts = val.split(',')
     const current = parts[parts.length - 1].trim().toLowerCase()
@@ -145,13 +130,16 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
     const parts = datasets.split(',').map((s) => s.trim())
     parts[parts.length - 1] = name
     setDatasets(parts.join(', '))
+    if (name === RCA_DATASET) applyRcaDefaults(parts.join(', '))
     setShowSuggestions(false)
   }
 
   const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const rcaSelected = isRcaSelected(datasets)
+    const effectiveModel = model.trim() || (rcaSelected ? 'rca-agent' : '')
     const newErrors: Record<string, string> = {}
-    if (!model.trim()) newErrors.model = 'Required'
+    if (!effectiveModel) newErrors.model = 'Required'
     if (!datasets.trim()) newErrors.datasets = 'Required'
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -160,13 +148,13 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
     setErrors({})
 
     const config: Record<string, unknown> = {
-      model,
+      model: effectiveModel,
       datasets: datasets.split(',').map((s) => s.trim()).filter(Boolean),
       limit: limit ? Number(limit) : undefined,
       eval_batch_size: evalBatchSize ? Number(evalBatchSize) : undefined,
     }
-    if (rcaPreset) {
-      config.model_id = rcaAgentMode === 'mock' ? 'web-rca-mock-agent' : `web-rca-${rcaAgentMode}-agent`
+    if (rcaSelected) {
+      config.model_id = 'web-rca-async-agent'
       config.eval_type = 'mock_llm'
       config.api_url = apiUrl || RCA_DUMMY_API_URL
       config.collect_perf = false
@@ -194,93 +182,6 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <section className="flex flex-col gap-4 border-b border-[var(--border)] pb-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--accent-dim)] text-[var(--accent)]">
-              <Stethoscope size={16} />
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-[var(--text)]">RCAEval RCA</div>
-              <div className="text-xs text-[var(--text-muted)]">Offline root-cause-analysis agent benchmark</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant={rcaPreset ? 'primary' : 'outline'}
-              size="sm"
-              onClick={applyRcaPreset}
-            >
-              Use RCA preset
-            </Button>
-            {rcaPreset && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setRcaPreset(false)}
-              >
-                Standard mode
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {rcaPreset && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField label="Agent Mode">
-              <select
-                value={rcaAgentMode}
-                onChange={(e) => setRcaAgentMode(e.target.value as RcaAgentMode)}
-                className={FORM_INPUT_CLASS}
-              >
-                <option value="mock">Mock</option>
-                <option value="http">HTTP Agent</option>
-                <option value="openai">OpenAI Compatible</option>
-              </select>
-            </FormField>
-            {rcaAgentMode === 'http' && (
-              <FormField label="Agent URL" className="md:col-span-2">
-                <input
-                  value={rcaAgentUrl}
-                  onChange={(e) => setRcaAgentUrl(e.target.value)}
-                  className={FORM_INPUT_CLASS}
-                  placeholder="http://127.0.0.1:7000/api/v1/diagnose"
-                />
-              </FormField>
-            )}
-            {rcaAgentMode === 'openai' && (
-              <>
-                <FormField label="OpenAI API URL">
-                  <input value={rcaOpenaiApiUrl} onChange={(e) => setRcaOpenaiApiUrl(e.target.value)} className={FORM_INPUT_CLASS} />
-                </FormField>
-                <FormField label="OpenAI Model">
-                  <input value={rcaOpenaiModel} onChange={(e) => setRcaOpenaiModel(e.target.value)} className={FORM_INPUT_CLASS} />
-                </FormField>
-                <FormField label="OpenAI API Key">
-                  <input type="password" value={rcaOpenaiApiKey} onChange={(e) => setRcaOpenaiApiKey(e.target.value)} className={FORM_INPUT_CLASS} />
-                </FormField>
-              </>
-            )}
-            <FormField label="Metrics Limit">
-              <input type="number" value={rcaMetricsLimit} onChange={(e) => setRcaMetricsLimit(e.target.value)} className={FORM_INPUT_CLASS} />
-            </FormField>
-            <FormField label="Agent Timeout">
-              <input type="number" value={rcaTimeout} onChange={(e) => setRcaTimeout(e.target.value)} className={FORM_INPUT_CLASS} />
-            </FormField>
-            <FormField label="Cases JSONL" className="md:col-span-3">
-              <input
-                value={rcaCasesPath}
-                onChange={(e) => setRcaCasesPath(e.target.value)}
-                className={FORM_INPUT_CLASS}
-                placeholder={RCA_DEFAULT_CASES_PATH}
-              />
-            </FormField>
-          </div>
-        )}
-      </section>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField label={t('eval.modelName')} required error={errors.model}>
           <input
