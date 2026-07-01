@@ -32,6 +32,7 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
   const [repeats, setRepeats] = useState('1')
   const [timeout, setTimeout_] = useState('60')
   const [stream, setStream] = useState(false)
+  const [ignoreErrors, setIgnoreErrors] = useState(false)
   const [temperature, setTemperature] = useState('')
   const [topP, setTopP] = useState('')
   const [maxTokens, setMaxTokens] = useState('')
@@ -175,6 +176,7 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
     if (repeats && Number(repeats) > 1) config.repeats = Number(repeats)
     if (timeout) config.timeout = Number(timeout)
     if (stream) config.stream = true
+    if (ignoreErrors) config.ignore_errors = true
     // Wrap generation params into generation_config dict
     const genConfig: Record<string, unknown> = {}
     if (temperature) genConfig.temperature = Number(temperature)
@@ -356,6 +358,12 @@ export default function EvalConfigForm({ onSubmit, disabled, initialDataset }: P
               <label className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] cursor-pointer">
                 <input type="checkbox" checked={stream} onChange={(e) => setStream(e.target.checked)} className="accent-[var(--accent)]" />
                 {t('eval.stream')}
+              </label>
+            </div>
+            <div className="flex items-end gap-2 pb-0.5">
+              <label className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] cursor-pointer">
+                <input type="checkbox" checked={ignoreErrors} onChange={(e) => setIgnoreErrors(e.target.checked)} className="accent-[var(--accent)]" />
+                Ignore errors
               </label>
             </div>
             <FormField label={t('eval.temperature')}>
